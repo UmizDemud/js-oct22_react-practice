@@ -1,24 +1,41 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import cn from 'classnames';
 import './App.scss';
 
 import usersFromServer from './api/users';
 import productsFromServer from './api/products';
 import categoriesFromServer from './api/categories';
+import { Product } from './types/Product';
 
 export const App: React.FC = () => {
-  const products = productsFromServer.map(product => {
-    const category = categoriesFromServer
-      .find(cat => cat.id === product.categoryId);
+  const [selectedUser, setSelectedUser] = useState(0);
+  const [products, setProducts] = useState<Product[]>([]);
 
-    const user = usersFromServer.find(usr => usr.id === category?.ownerId);
+  useEffect(() => {
+    setProducts(productsFromServer.map(product => {
+      const category = categoriesFromServer
+        .find(cat => cat.id === product.categoryId);
+      const user = usersFromServer
+        .find(usr => usr.id === category?.ownerId);
 
-    return ({
-      ...product,
-      category,
-      user,
-    });
-  });
+      return ({
+        ...product,
+        category,
+        user,
+      });
+    }));
+  }, []);
+
+  const visibleProducts = useMemo(() => {
+    let filteredProducts = [...products];
+
+    if (selectedUser) {
+      filteredProducts = filteredProducts
+        .filter(prod => prod.user?.id === selectedUser);
+    }
+
+    return filteredProducts;
+  }, [products, selectedUser]);
 
   return (
     <div className="section">
@@ -32,32 +49,25 @@ export const App: React.FC = () => {
             <p className="panel-tabs has-text-weight-bold">
               <a
                 data-cy="FilterAllUsers"
-                href="#/"
+                href="#/all"
+                onClick={() => setSelectedUser(0)}
               >
                 All
               </a>
 
-              <a
-                data-cy="FilterUser"
-                href="#/"
-              >
-                User 1
-              </a>
-
-              <a
-                data-cy="FilterUser"
-                href="#/"
-                className="is-active"
-              >
-                User 2
-              </a>
-
-              <a
-                data-cy="FilterUser"
-                href="#/"
-              >
-                User 3
-              </a>
+              {usersFromServer.map(user => (
+                <a
+                  key={user.id}
+                  data-cy="FilterUser"
+                  href={`#/${user.name}`}
+                  className={cn(
+                    { 'is-active': selectedUser === user.id },
+                  )}
+                  onClick={() => setSelectedUser(user.id)}
+                >
+                  {user.name}
+                </a>
+              ))}
             </p>
 
             <div className="panel-block">
@@ -202,8 +212,8 @@ export const App: React.FC = () => {
 
             <tbody>
               {
-                products.map(product => (
-                  <tr data-cy="Product">
+                visibleProducts.map(product => (
+                  <tr key={product.id} data-cy="Product">
                     <td className="has-text-weight-bold" data-cy="ProductId">
                       {product.id}
                     </td>
