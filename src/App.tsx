@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import cn from 'classnames';
 import './App.scss';
 
@@ -9,7 +9,10 @@ import { Product } from './types/Product';
 
 export const App: React.FC = () => {
   const [selectedUser, setSelectedUser] = useState(0);
+  const [query, setQuery] = useState('');
+
   const [products, setProducts] = useState<Product[]>([]);
+  const [visibleProducts, setVisibleProducts] = useState<Product[]>([]);
 
   useEffect(() => {
     setProducts(productsFromServer.map(product => {
@@ -26,7 +29,7 @@ export const App: React.FC = () => {
     }));
   }, []);
 
-  const visibleProducts = useMemo(() => {
+  useEffect(() => {
     let filteredProducts = [...products];
 
     if (selectedUser) {
@@ -34,8 +37,23 @@ export const App: React.FC = () => {
         .filter(prod => prod.user?.id === selectedUser);
     }
 
-    return filteredProducts;
-  }, [products, selectedUser]);
+    if (query) {
+      const trimmedQuery = query.toLowerCase();
+
+      filteredProducts = filteredProducts
+        .filter(prod => prod.name.toLowerCase().includes(trimmedQuery));
+    }
+
+    setVisibleProducts(filteredProducts);
+  }, [products, selectedUser, query]);
+
+  const resetFilters = useCallback(
+    () => {
+      setQuery('');
+      setSelectedUser(0);
+    },
+    [],
+  );
 
   return (
     <div className="section">
@@ -77,7 +95,8 @@ export const App: React.FC = () => {
                   type="text"
                   className="input"
                   placeholder="Search"
-                  value="qwe"
+                  value={query}
+                  onChange={e => setQuery(e.target.value)}
                 />
 
                 <span className="icon is-left">
@@ -85,12 +104,15 @@ export const App: React.FC = () => {
                 </span>
 
                 <span className="icon is-right">
-                  {/* eslint-disable-next-line jsx-a11y/control-has-associated-label */}
-                  <button
-                    data-cy="ClearButton"
-                    type="button"
-                    className="delete"
-                  />
+                  {query && (
+                    <button
+                      data-cy="ClearButton"
+                      type="button"
+                      className="delete"
+                      aria-label="clear search"
+                      onClick={() => setQuery('')}
+                    />
+                  )}
                 </span>
               </p>
             </div>
@@ -141,7 +163,7 @@ export const App: React.FC = () => {
                 data-cy="ResetAllButton"
                 href="#/"
                 className="button is-link is-outlined is-fullwidth"
-
+                onClick={() => resetFilters()}
               >
                 Reset all filters
               </a>
@@ -211,8 +233,8 @@ export const App: React.FC = () => {
             </thead>
 
             <tbody>
-              {
-                visibleProducts.map(product => (
+              {visibleProducts.length
+                ? visibleProducts.map(product => (
                   <tr key={product.id} data-cy="Product">
                     <td className="has-text-weight-bold" data-cy="ProductId">
                       {product.id}
@@ -234,7 +256,7 @@ export const App: React.FC = () => {
                     </td>
                   </tr>
                 ))
-              }
+                : 'No results'}
             </tbody>
           </table>
         </div>
