@@ -7,13 +7,67 @@ import productsFromServer from './api/products';
 import categoriesFromServer from './api/categories';
 import { Product } from './types/Product';
 
+enum SortType {
+  NONE,
+  ID,
+  PRODUCT,
+  CATEGORY,
+  USER,
+}
+
 export const App: React.FC = () => {
   const [selectedUser, setSelectedUser] = useState(0);
   const [query, setQuery] = useState('');
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [sortType, setSortType] = useState<SortType>(SortType.NONE);
+  const [isSortReverse, setIsSortReverse] = useState(false);
 
   const [products, setProducts] = useState<Product[]>([]);
   const [visibleProducts, setVisibleProducts] = useState<Product[]>([]);
+
+  const sortProducts = (array: Product[], sT: SortType, asc: boolean) => {
+    switch (sT) {
+      case SortType.CATEGORY:
+        return array
+          .sort((a, b) => {
+            return asc
+              ? (
+                (a.category?.title as string).split(' - ')[0] || '')
+                .localeCompare(
+                  (b.category?.title as string).split(' - ')[0] || '',
+                )
+              : (
+                (b.category?.title as string).split(' - ')[0] || '')
+                .localeCompare(
+                  (a.category?.title as string).split(' - ')[0] || '',
+                );
+          });
+      case SortType.PRODUCT:
+        return array
+          .sort((a, b) => {
+            return asc
+              ? a.name.localeCompare(b.name)
+              : b.name.localeCompare(a.name);
+          });
+      case SortType.USER:
+        return array
+          .sort((a, b) => {
+            return asc
+              ? (a.user?.name as string)
+                .localeCompare(b.user?.name as string)
+              : (b.user?.name as string)
+                .localeCompare(a.user?.name as string);
+          });
+      case SortType.ID:
+        return array.sort((a, b) => {
+          return asc
+            ? a.id - b.id
+            : b.id - a.id;
+        });
+      default:
+        return array;
+    }
+  };
 
   useEffect(() => {
     setProducts(productsFromServer.map(product => {
@@ -51,14 +105,52 @@ export const App: React.FC = () => {
           .includes(prod.category?.title || ''));
     }
 
+    if (sortType) {
+      filteredProducts = sortProducts(
+        filteredProducts,
+        sortType,
+        !isSortReverse,
+      );
+    }
+
     setVisibleProducts(filteredProducts);
-  }, [products, selectedUser, query, selectedCategories]);
+  }, [
+    products,
+    selectedUser,
+    query,
+    selectedCategories,
+    sortType,
+    isSortReverse,
+  ]);
+
+  const toggleSort = (newSortType: SortType) => {
+    // first click
+    if (sortType !== newSortType) {
+      setSortType(newSortType);
+      setIsSortReverse(false);
+
+      return;
+    }
+
+    // second click
+    if (isSortReverse) {
+      setSortType(SortType.NONE);
+      setIsSortReverse(false);
+
+      return;
+    }
+
+    // third click
+    setIsSortReverse(true);
+  };
 
   const resetFilters = useCallback(
     () => {
       setQuery('');
       setSelectedUser(0);
       setSelectedCategories([]);
+      setSortType(SortType.NONE);
+      setIsSortReverse(false);
     },
     [],
   );
@@ -140,6 +232,7 @@ export const App: React.FC = () => {
 
               {categoriesFromServer.map(category => (
                 <a
+                  key={category.id}
                   data-cy="Category"
                   className={cn(
                     'button mr-2 my-1',
@@ -179,49 +272,117 @@ export const App: React.FC = () => {
           >
             <thead>
               <tr>
-                <th>
+                <th
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => toggleSort(SortType.ID)}
+                >
                   <span className="is-flex is-flex-wrap-nowrap">
                     ID
 
                     <a href="#/">
                       <span className="icon">
-                        <i data-cy="SortIcon" className="fas fa-sort" />
+                        <i
+                          data-cy="SortIcon"
+                          className={cn(
+                            'fas',
+                            { 'fa-sort': sortType !== SortType.ID },
+                            {
+                              'fa-sort-up': sortType === SortType.ID
+                                && !isSortReverse,
+                            },
+                            {
+                              'fa-sort-down': sortType === SortType.ID
+                                && isSortReverse,
+                            },
+                          )}
+                        />
                       </span>
                     </a>
                   </span>
                 </th>
 
-                <th>
+                <th
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => toggleSort(SortType.PRODUCT)}
+                >
                   <span className="is-flex is-flex-wrap-nowrap">
                     Product
 
                     <a href="#/">
                       <span className="icon">
-                        <i data-cy="SortIcon" className="fas fa-sort-down" />
+                        <i
+                          data-cy="SortIcon"
+                          className={cn(
+                            'fas',
+                            { 'fa-sort': sortType !== SortType.PRODUCT },
+                            {
+                              'fa-sort-up': sortType === SortType.PRODUCT
+                                && !isSortReverse,
+                            },
+                            {
+                              'fa-sort-down': sortType === SortType.PRODUCT
+                                && isSortReverse,
+                            },
+                          )}
+                        />
                       </span>
                     </a>
                   </span>
                 </th>
 
-                <th>
+                <th
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => toggleSort(SortType.CATEGORY)}
+                >
                   <span className="is-flex is-flex-wrap-nowrap">
                     Category
 
                     <a href="#/">
                       <span className="icon">
-                        <i data-cy="SortIcon" className="fas fa-sort-up" />
+                        <i
+                          data-cy="SortIcon"
+                          className={cn(
+                            'fas',
+                            { 'fa-sort': sortType !== SortType.CATEGORY },
+                            {
+                              'fa-sort-up': sortType === SortType.CATEGORY
+                                && !isSortReverse,
+                            },
+                            {
+                              'fa-sort-down': sortType === SortType.CATEGORY
+                                && isSortReverse,
+                            },
+                          )}
+                        />
                       </span>
                     </a>
                   </span>
                 </th>
 
-                <th>
+                <th
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => toggleSort(SortType.USER)}
+                >
                   <span className="is-flex is-flex-wrap-nowrap">
                     User
 
                     <a href="#/">
                       <span className="icon">
-                        <i data-cy="SortIcon" className="fas fa-sort" />
+                        <i
+                          data-cy="SortIcon"
+                          className={cn(
+                            'fas',
+                            { 'fa-sort': sortType !== SortType.USER },
+                            {
+                              'fa-sort-up': sortType === SortType.USER
+                                && !isSortReverse,
+                            },
+                            {
+                              'fa-sort-down': sortType === SortType.USER
+                                && isSortReverse,
+                            },
+                          )}
+                        />
                       </span>
                     </a>
                   </span>
@@ -253,7 +414,7 @@ export const App: React.FC = () => {
                     </td>
                   </tr>
                 ))
-                : 'No results'}
+                : <tr><td>No results</td></tr>}
             </tbody>
           </table>
         </div>
