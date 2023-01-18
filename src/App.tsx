@@ -1,4 +1,10 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import {
+  FC,
+  useEffect,
+  useState,
+  useCallback,
+  useMemo,
+} from 'react';
 import cn from 'classnames';
 import './App.scss';
 
@@ -15,11 +21,18 @@ enum SortType {
   USER,
 }
 
-export const App: React.FC = () => {
+export const App: FC = () => {
   const [selectedUser, setSelectedUser] = useState(0);
   const [query, setQuery] = useState('');
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [sortType, setSortType] = useState<SortType>(SortType.NONE);
+  const allCategories = useMemo(
+    () => categoriesFromServer.map(cat => cat.title), [categoriesFromServer],
+  );
+  const [
+    selectedCategories,
+    setSelectedCategories,
+  ] = useState<string[]>([...allCategories]);
+
+  const [sortType, setSortType] = useState<SortType>(SortType.ID);
   const [isSortReverse, setIsSortReverse] = useState(false);
 
   const [products, setProducts] = useState<Product[]>([]);
@@ -85,7 +98,8 @@ export const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    let filteredProducts = [...products];
+    let filteredProducts = [...products].filter(prod => selectedCategories
+      .includes(prod.category?.title || ''));
 
     if (selectedUser) {
       filteredProducts = filteredProducts
@@ -97,12 +111,6 @@ export const App: React.FC = () => {
 
       filteredProducts = filteredProducts
         .filter(prod => prod.name.toLowerCase().includes(trimmedQuery));
-    }
-
-    if (selectedCategories.length) {
-      filteredProducts = filteredProducts
-        .filter(prod => selectedCategories
-          .includes(prod.category?.title || ''));
     }
 
     if (sortType) {
@@ -148,7 +156,7 @@ export const App: React.FC = () => {
     () => {
       setQuery('');
       setSelectedUser(0);
-      setSelectedCategories([]);
+      setSelectedCategories(allCategories);
       setSortType(SortType.NONE);
       setIsSortReverse(false);
     },
@@ -168,6 +176,9 @@ export const App: React.FC = () => {
               <a
                 data-cy="FilterAllUsers"
                 href="#/all"
+                className={cn(
+                  { 'is-active': selectedUser === 0 },
+                )}
                 onClick={() => setSelectedUser(0)}
               >
                 All
@@ -223,9 +234,12 @@ export const App: React.FC = () => {
                 data-cy="AllCategories"
                 className={cn(
                   'button is-success mr-6',
-                  { 'is-outlined': selectedCategories.length },
+                  {
+                    'is-outlined':
+                    selectedCategories.length !== allCategories.length,
+                  },
                 )}
-                onClick={() => setSelectedCategories([])}
+                onClick={() => setSelectedCategories([...allCategories])}
               >
                 All
               </a>
@@ -236,12 +250,20 @@ export const App: React.FC = () => {
                   data-cy="Category"
                   className={cn(
                     'button mr-2 my-1',
-                    { 'is-info': selectedCategories.includes(category.title) },
+                    {
+                      'is-info': selectedCategories.includes(category.title),
+                    },
                   )}
                   href="#/"
-                  onClick={() => setSelectedCategories(
-                    prev => [...prev, category.title],
-                  )}
+                  onClick={() => {
+                    if (selectedCategories.includes(category.title)) {
+                      setSelectedCategories(
+                        prev => prev.filter(title => title !== category.title),
+                      );
+                    } else {
+                      setSelectedCategories(prev => [...prev, category.title]);
+                    }
+                  }}
                 >
                   {category.title}
                 </a>
@@ -262,161 +284,163 @@ export const App: React.FC = () => {
         </div>
 
         <div className="box table-container">
-          <p data-cy="NoMatchingMessage">
-            No products matching selected criteria
-          </p>
-
-          <table
-            data-cy="ProductTable"
-            className="table is-striped is-narrow is-fullwidth"
-          >
-            <thead>
-              <tr>
-                <th
-                  style={{ cursor: 'pointer' }}
-                  onClick={() => toggleSort(SortType.ID)}
-                >
-                  <span className="is-flex is-flex-wrap-nowrap">
-                    ID
-
-                    <a href="#/">
-                      <span className="icon">
-                        <i
-                          data-cy="SortIcon"
-                          className={cn(
-                            'fas',
-                            { 'fa-sort': sortType !== SortType.ID },
-                            {
-                              'fa-sort-up': sortType === SortType.ID
-                                && !isSortReverse,
-                            },
-                            {
-                              'fa-sort-down': sortType === SortType.ID
-                                && isSortReverse,
-                            },
-                          )}
-                        />
-                      </span>
-                    </a>
-                  </span>
-                </th>
-
-                <th
-                  style={{ cursor: 'pointer' }}
-                  onClick={() => toggleSort(SortType.PRODUCT)}
-                >
-                  <span className="is-flex is-flex-wrap-nowrap">
-                    Product
-
-                    <a href="#/">
-                      <span className="icon">
-                        <i
-                          data-cy="SortIcon"
-                          className={cn(
-                            'fas',
-                            { 'fa-sort': sortType !== SortType.PRODUCT },
-                            {
-                              'fa-sort-up': sortType === SortType.PRODUCT
-                                && !isSortReverse,
-                            },
-                            {
-                              'fa-sort-down': sortType === SortType.PRODUCT
-                                && isSortReverse,
-                            },
-                          )}
-                        />
-                      </span>
-                    </a>
-                  </span>
-                </th>
-
-                <th
-                  style={{ cursor: 'pointer' }}
-                  onClick={() => toggleSort(SortType.CATEGORY)}
-                >
-                  <span className="is-flex is-flex-wrap-nowrap">
-                    Category
-
-                    <a href="#/">
-                      <span className="icon">
-                        <i
-                          data-cy="SortIcon"
-                          className={cn(
-                            'fas',
-                            { 'fa-sort': sortType !== SortType.CATEGORY },
-                            {
-                              'fa-sort-up': sortType === SortType.CATEGORY
-                                && !isSortReverse,
-                            },
-                            {
-                              'fa-sort-down': sortType === SortType.CATEGORY
-                                && isSortReverse,
-                            },
-                          )}
-                        />
-                      </span>
-                    </a>
-                  </span>
-                </th>
-
-                <th
-                  style={{ cursor: 'pointer' }}
-                  onClick={() => toggleSort(SortType.USER)}
-                >
-                  <span className="is-flex is-flex-wrap-nowrap">
-                    User
-
-                    <a href="#/">
-                      <span className="icon">
-                        <i
-                          data-cy="SortIcon"
-                          className={cn(
-                            'fas',
-                            { 'fa-sort': sortType !== SortType.USER },
-                            {
-                              'fa-sort-up': sortType === SortType.USER
-                                && !isSortReverse,
-                            },
-                            {
-                              'fa-sort-down': sortType === SortType.USER
-                                && isSortReverse,
-                            },
-                          )}
-                        />
-                      </span>
-                    </a>
-                  </span>
-                </th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {visibleProducts.length
-                ? visibleProducts.map(product => (
-                  <tr key={product.id} data-cy="Product">
-                    <td className="has-text-weight-bold" data-cy="ProductId">
-                      {product.id}
-                    </td>
-
-                    <td data-cy="ProductName">{product.name}</td>
-                    <td data-cy="ProductCategory">
-                      {`${product.category?.icon} - ${product.category?.title}`}
-                    </td>
-
-                    <td
-                      data-cy="ProductUser"
-                      className={cn(
-                        { 'has-text-danger': product.user?.sex === 'f' },
-                        { 'has-text-link': product.user?.sex === 'm' },
-                      )}
+          {visibleProducts.length
+            ? (
+              <table
+                data-cy="ProductTable"
+                className="table is-striped is-narrow is-fullwidth"
+              >
+                <thead>
+                  <tr>
+                    <th
+                      style={{ cursor: 'pointer' }}
+                      onClick={() => toggleSort(SortType.ID)}
                     >
-                      {product.user?.name}
-                    </td>
+                      <span className="is-flex is-flex-wrap-nowrap">
+                        ID
+
+                        <a href="#/">
+                          <span className="icon">
+                            <i
+                              data-cy="SortIcon"
+                              className={cn(
+                                'fas',
+                                { 'fa-sort': sortType !== SortType.ID },
+                                {
+                                  'fa-sort-up': sortType === SortType.ID
+                                    && !isSortReverse,
+                                },
+                                {
+                                  'fa-sort-down': sortType === SortType.ID
+                                    && isSortReverse,
+                                },
+                              )}
+                            />
+                          </span>
+                        </a>
+                      </span>
+                    </th>
+
+                    <th
+                      style={{ cursor: 'pointer' }}
+                      onClick={() => toggleSort(SortType.PRODUCT)}
+                    >
+                      <span className="is-flex is-flex-wrap-nowrap">
+                        Product
+
+                        <a href="#/">
+                          <span className="icon">
+                            <i
+                              data-cy="SortIcon"
+                              className={cn(
+                                'fas',
+                                { 'fa-sort': sortType !== SortType.PRODUCT },
+                                {
+                                  'fa-sort-up': sortType === SortType.PRODUCT
+                                    && !isSortReverse,
+                                },
+                                {
+                                  'fa-sort-down': sortType === SortType.PRODUCT
+                                    && isSortReverse,
+                                },
+                              )}
+                            />
+                          </span>
+                        </a>
+                      </span>
+                    </th>
+
+                    <th
+                      style={{ cursor: 'pointer' }}
+                      onClick={() => toggleSort(SortType.CATEGORY)}
+                    >
+                      <span className="is-flex is-flex-wrap-nowrap">
+                        Category
+
+                        <a href="#/">
+                          <span className="icon">
+                            <i
+                              data-cy="SortIcon"
+                              className={cn(
+                                'fas',
+                                { 'fa-sort': sortType !== SortType.CATEGORY },
+                                {
+                                  'fa-sort-up': sortType === SortType.CATEGORY
+                                    && !isSortReverse,
+                                },
+                                {
+                                  'fa-sort-down': sortType === SortType.CATEGORY
+                                    && isSortReverse,
+                                },
+                              )}
+                            />
+                          </span>
+                        </a>
+                      </span>
+                    </th>
+
+                    <th
+                      style={{ cursor: 'pointer' }}
+                      onClick={() => toggleSort(SortType.USER)}
+                    >
+                      <span className="is-flex is-flex-wrap-nowrap">
+                        User
+
+                        <a href="#/">
+                          <span className="icon">
+                            <i
+                              data-cy="SortIcon"
+                              className={cn(
+                                'fas',
+                                { 'fa-sort': sortType !== SortType.USER },
+                                {
+                                  'fa-sort-up': sortType === SortType.USER
+                                    && !isSortReverse,
+                                },
+                                {
+                                  'fa-sort-down': sortType === SortType.USER
+                                    && isSortReverse,
+                                },
+                              )}
+                            />
+                          </span>
+                        </a>
+                      </span>
+                    </th>
                   </tr>
-                ))
-                : <tr><td>No results</td></tr>}
-            </tbody>
-          </table>
+                </thead>
+
+                <tbody>
+                  {visibleProducts.map(product => (
+                    <tr key={product.id} data-cy="Product">
+                      <td className="has-text-weight-bold" data-cy="ProductId">
+                        {product.id}
+                      </td>
+
+                      <td data-cy="ProductName">{product.name}</td>
+                      <td data-cy="ProductCategory">
+                        {`${product.category?.icon} - ${product.category?.title}`}
+                      </td>
+
+                      <td
+                        data-cy="ProductUser"
+                        className={cn(
+                          { 'has-text-danger': product.user?.sex === 'f' },
+                          { 'has-text-link': product.user?.sex === 'm' },
+                        )}
+                      >
+                        {product.user?.name}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )
+            : (
+              <p data-cy="NoMatchingMessage">
+                No products matching selected criteria
+              </p>
+            )}
         </div>
       </div>
     </div>
